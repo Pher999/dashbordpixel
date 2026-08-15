@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Campañas — MEGA CABLE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --noche:#0A0E1C;
+    --acero:#141A33;
+    --acero-alto:#1A2242;
+    --azul:#2E5BFF;
+    --azul-hondo:#2647CC;
+    --aqua:#2BE8D6;
+    --naranja:#FF6A2B;
+    --linea:#1D2440;
+    --texto:#F2F5FA;
+    --tenue:#8B95AD;
+    --display:'Bricolage Grotesque', sans-serif;
+    --cuerpo:'Instrument Sans', system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--noche); color:var(--texto);
+    font-family:var(--cuerpo); -webkit-font-smoothing:antialiased;
+  }
+  .marco{max-width:1240px; margin:0 auto; padding:36px 28px 80px;}
+
+  /* ---------- ENCABEZADO ---------- */
+  .cabecera{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    gap:24px; flex-wrap:wrap; padding-bottom:24px; border-bottom:1px solid var(--linea);
+  }
+  .rotulo{
+    font-size:12px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--azul); font-weight:700; display:flex; align-items:center; gap:8px;
+  }
+  .rotulo::before{
+    content:''; width:8px; height:8px; border-radius:50%; background:var(--aqua);
+    box-shadow:0 0 0 4px rgba(43,232,214,.18);
+  }
+  h1{
+    font-family:var(--display); font-weight:800; letter-spacing:-.035em;
+    font-size:clamp(30px,4.4vw,50px); line-height:1.02; margin:12px 0 0;
+  }
+  .periodo{font-size:14px; color:var(--tenue); text-align:right; line-height:1.6;}
+  .periodo b{color:var(--texto); font-weight:600; display:block; font-size:16px;}
+
+  /* ---------- CARGA DE ARCHIVOS ---------- */
+  .cargas{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+    gap:16px; margin:28px 0 40px;
+  }
+  .zona{
+    background:var(--acero); border:2px dashed var(--linea); border-radius:18px;
+    padding:22px; transition:border-color .25s ease, background .25s ease;
+  }
+  .zona.activa{border-color:var(--aqua); background:var(--acero-alto);}
+  .zona.lista{border-style:solid; border-color:var(--azul);}
+  .zona h2{
+    font-family:var(--display); font-weight:800; font-size:16px;
+    margin:0 0 4px; letter-spacing:-.02em;
+  }
+  .zona p{margin:0 0 14px; font-size:13px; color:var(--tenue); line-height:1.5;}
+  .zona .estado{
+    font-size:12px; color:var(--aqua); font-weight:600; min-height:18px; display:block; margin-top:10px;
+  }
+  .zona.error .estado{color:var(--naranja);}
+  .botoncito{
+    font-family:var(--cuerpo); font-size:13px; font-weight:700; color:#fff;
+    background:var(--azul); border:none; border-radius:999px; padding:10px 20px;
+    cursor:pointer; transition:background .25s ease;
+  }
+  .botoncito:hover{background:var(--azul-hondo);}
+  .botoncito:focus-visible{outline:3px solid var(--aqua); outline-offset:3px;}
+  input[type=file]{display:none;}
+  input[type=number]{
+    width:100%; background:var(--noche); border:2px solid var(--linea); border-radius:12px;
+    color:var(--texto); font-family:var(--cuerpo); font-size:22px; font-weight:700;
+    padding:12px 14px;
+  }
+  input[type=number]:focus{outline:none; border-color:var(--azul);}
+
+  /* ---------- AVISO ---------- */
+  .aviso{
+    display:none; align-items:flex-start; gap:14px;
+    background:rgba(255,106,43,.1); border:1px solid var(--naranja); border-radius:16px;
+    padding:16px 20px; margin-bottom:32px; font-size:14px; line-height:1.55; color:#FFC4A3;
+  }
+  .aviso.visible{display:flex;}
+  .aviso b{color:var(--naranja); display:block; margin-bottom:2px;}
+
+  /* ---------- TARJETAS KPI ---------- */
+  .kpis{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:16px; margin-bottom:44px;
+  }
+  .kpi{
+    background:var(--acero); border:1px solid var(--linea); border-radius:18px; padding:24px;
+  }
+  .kpi .nombre{
+    font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--tenue); font-weight:600; margin-bottom:10px;
+  }
+  .kpi .cifra{
+    font-family:var(--display); font-weight:800; letter-spacing:-.03em;
+    font-size:clamp(32px,3.4vw,42px); line-height:1; color:var(--texto);
+  }
+  .kpi .cifra.destacada{color:var(--aqua);}
+  .kpi .pie{font-size:12px; color:var(--tenue); margin-top:8px; line-height:1.4;}
+  .kpi.vacio .cifra{color:var(--linea);}
+
+  /* ---------- SECCIONES ---------- */
+  .bloque{margin-bottom:52px;}
+  .bloque > h2{
+    font-family:var(--display); font-weight:800; letter-spacing:-.03em;
+    font-size:26px; margin:0 0 6px;
+  }
+  .bloque > .sub{font-size:14px; color:var(--tenue); margin:0 0 24px; max-width:640px; line-height:1.55;}
+
+  /* ---------- EMBUDO (elemento firma) ---------- */
+  .embudo{background:var(--acero); border:1px solid var(--linea); border-radius:22px; padding:32px 30px;}
+  .paso{display:grid; grid-template-columns:38px 1fr; gap:18px; align-items:start;}
+  .indice{
+    font-family:var(--display); font-weight:800; font-size:15px; color:var(--azul);
+    padding-top:14px;
+  }
+  .barra-marco{padding:10px 0;}
+  .barra-etiquetas{
+    display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:8px;
+  }
+  .barra-nombre{font-size:14px; font-weight:600;}
+  .barra-nombre small{display:block; color:var(--tenue); font-weight:400; font-size:12px; margin-top:2px;}
+  .barra-total{font-family:var(--display); font-weight:800; font-size:26px; letter-spacing:-.02em;}
+  .barra-riel{height:14px; background:var(--noche); border-radius:999px; overflow:hidden;}
+  .barra-relleno{
+    height:100%; border-radius:999px; width:0;
+    background:linear-gradient(90deg,var(--azul),var(--aqua));
+    transition:width .9s cubic-bezier(0.16,1,0.3,1);
+  }
+  .caida{
+    grid-column:2; display:flex; align-items:center; gap:10px;
+    font-size:12px; color:var(--tenue); padding:2px 0 2px 2px;
+  }
+  .caida .flecha{color:var(--linea); font-size:14px;}
+  .caida b{color:var(--aqua); font-weight:700;}
+  .caida.mala b{color:var(--naranja);}
+
+  .fuera{
+    display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;
+    margin-top:26px; padding-top:22px; border-top:1px solid var(--linea);
+    font-size:14px; color:var(--tenue);
+  }
+  .fuera .valor{font-family:var(--display); font-weight:800; font-size:24px; color:var(--naranja);}
+
+  /* ---------- GRÁFICA DE FRECUENCIA ---------- */
+  .frecuencia{background:var(--acero); border:1px solid var(--linea); border-radius:22px; padding:32px 30px;}
+  .filtro{display:flex; align-items:center; gap:12px; margin-bottom:26px; flex-wrap:wrap;}
+  .filtro label{
+    font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--tenue); font-weight:600;
+  }
+  .filtro select{
+    background:var(--noche); color:var(--texto); border:2px solid var(--linea);
+    border-radius:999px; padding:10px 18px; font-family:var(--cuerpo);
+    font-size:14px; font-weight:600; cursor:pointer; min-width:220px;
+  }
+  .filtro select:hover{border-color:var(--azul);}
+  .filtro select:focus{outline:none; border-color:var(--aqua);}
+  .conmutador{display:inline-flex; background:var(--noche); border:2px solid var(--linea); border-radius:999px; padding:3px;}
+  .conmutador button{
+    font-family:var(--cuerpo); font-size:13px; font-weight:600; color:var(--tenue);
+    background:transparent; border:none; border-radius:999px; padding:7px 16px; cursor:pointer;
+    transition:background .2s ease, color .2s ease;
+  }
+  .conmutador button:hover{color:var(--texto);}
+  .conmutador button.activo{background:var(--azul); color:#fff;}
+  .conmutador button:focus-visible{outline:2px solid var(--aqua); outline-offset:2px;}
+  .grafica-svg{width:100%; height:auto; display:block; overflow:visible;}
+  .rejilla{stroke:var(--linea); stroke-width:1;}
+  .eje-y{fill:var(--tenue); font-size:11px; font-family:var(--cuerpo);}
+  .eje-x{fill:var(--tenue); font-size:11px; font-family:var(--cuerpo); text-anchor:middle;}
+  .area-tendencia{fill:url(#degradado-area);}
+  .linea-tendencia{
+    fill:none; stroke:var(--aqua); stroke-width:2.5;
+    stroke-linecap:round; stroke-linejoin:round;
+  }
+  .punto{fill:var(--noche); stroke:var(--aqua); stroke-width:2.5; transition:r .2s ease;}
+  .punto-hover{fill:var(--noche); stroke:var(--aqua); stroke-width:2.5; opacity:0; transition:opacity .18s ease;}
+  .grupo-punto:hover .punto-hover{opacity:1;}
+  .zona-punto{fill:transparent; cursor:pointer;}
+  .globo{opacity:0; transition:opacity .18s ease; pointer-events:none;}
+  .globo rect{fill:var(--acero-alto); stroke:var(--aqua); stroke-width:1; rx:8;}
+  .globo text{fill:var(--texto); font-size:12px; font-weight:700; font-family:var(--cuerpo); text-anchor:middle;}
+  .grupo-punto:hover .globo{opacity:1;}
+  .grupo-punto:hover .punto{r:6;}
+  @media (prefers-reduced-motion: no-preference){
+    .linea-tendencia.animada{
+      stroke-dasharray:var(--largo); stroke-dashoffset:var(--largo);
+      animation:traza 1.1s cubic-bezier(0.16,1,0.3,1) forwards;
+    }
+    @keyframes traza{ to{ stroke-dashoffset:0; } }
+  }
+  .desglose{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-top:26px;
+    padding-top:22px; border-top:1px solid var(--linea);
+  }
+  .desglose div{font-size:13px; color:var(--tenue);}
+  .desglose b{display:block; font-family:var(--display); font-weight:800; font-size:20px; color:var(--texto); margin-bottom:2px;}
+
+  /* ---------- CIERRES ---------- */
+  .cierres{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px;
+  }
+  .cierre-caja{background:var(--acero); border:1px solid var(--linea); border-radius:18px; padding:26px;}
+  .cierre-caja.resalte{border-color:var(--aqua); background:linear-gradient(140deg,rgba(43,232,214,.1),var(--acero) 60%);}
+  .cierre-caja .nombre{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--tenue); font-weight:600; margin-bottom:10px;}
+  .cierre-caja .cifra{font-family:var(--display); font-weight:800; font-size:40px; line-height:1; letter-spacing:-.03em;}
+  .cierre-caja.resalte .cifra{color:var(--aqua);}
+  .cierre-caja .pie{font-size:12px; color:var(--tenue); margin-top:8px; line-height:1.45;}
+
+  .vacio-msg{
+    background:var(--acero); border:1px dashed var(--linea); border-radius:22px;
+    padding:44px 30px; text-align:center; color:var(--tenue); font-size:14px; line-height:1.6;
+  }
+  .vacio-msg b{display:block; color:var(--texto); font-family:var(--display); font-weight:800; font-size:18px; margin-bottom:6px;}
+
+  pie{display:block;}
+  .cierre-pie{
+    margin-top:60px; padding-top:24px; border-top:1px solid var(--linea);
+    font-size:12px; color:var(--tenue); text-align:center; line-height:1.7;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .barra-relleno{transition:none;}
+  }
+  @media(max-width:640px){
+    .marco{padding:24px 18px 60px;}
+    .periodo{text-align:left;}
+    .paso{grid-template-columns:26px 1fr; gap:12px;}
+    .grafica{height:170px;}
+  }
+</style>
+</head>
+<body>
+<div class="marco">
+
+  <!-- ENCABEZADO -->
+  <header class="cabecera">
+    <div>
+      <div class="rotulo">Rendimiento de campaña</div>
+      <h1>Del anuncio<br>a la venta</h1>
+    </div>
+    <div class="periodo">
+      <b id="periodo-texto">Sin datos cargados</b>
+      <span id="periodo-detalle">Sube tus archivos para empezar</span>
+    </div>
+  </header>
+
+  <!-- CARGA DE ARCHIVOS -->
+  <section class="cargas">
+    <div class="zona" id="zona-eventos">
+      <h2>Eventos del sitio</h2>
+      <p>Los archivos que exportas del Administrador de eventos. Puedes soltar los 6 de una vez.</p>
+      <button class="botoncito" data-abre="archivo-eventos">Elegir archivos</button>
+      <input type="file" id="archivo-eventos" accept=".xlsx,.xls,.csv" multiple>
+      <span class="estado" id="estado-eventos"></span>
+    </div>
+
+    <div class="zona" id="zona-campana">
+      <h2>Datos de campaña</h2>
+      <p>El archivo del Administrador de anuncios, con impresiones, alcance y gasto.</p>
+      <button class="botoncito" data-abre="archivo-campana">Elegir archivo</button>
+      <input type="file" id="archivo-campana" accept=".xlsx,.xls,.csv">
+      <span class="estado" id="estado-campana"></span>
+    </div>
+
+    <div class="zona" id="zona-cierres">
+      <h2>Ventas cerradas</h2>
+      <p>Este dato no existe en Meta. Pregúntaselo al equipo de ventas y escríbelo aquí.</p>
+      <input type="number" id="entrada-cierres" min="0" step="1" placeholder="0" value="">
+      <span class="estado" id="estado-cierres"></span>
+    </div>
+  </section>
+
+  <!-- AVISO DE VOLUMEN -->
+  <div class="aviso" id="aviso-volumen">
+    <span>&#9888;</span>
+    <div>
+      <b>Todavía hay pocos datos para sacar conclusiones</b>
+      <span id="aviso-texto"></span>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <section class="kpis" id="kpis"></section>
+
+  <!-- EMBUDO -->
+  <section class="bloque">
+    <h2>El recorrido completo</h2>
+    <p class="sub">Cada paso del formulario, en el orden en que el cliente lo vive. El porcentaje muestra cuántos siguieron desde el paso anterior.</p>
+    <div id="contenedor-embudo"></div>
+  </section>
+
+  <!-- FRECUENCIA -->
+  <section class="bloque">
+    <h2>Cuándo pasa la actividad</h2>
+    <p class="sub">Total de eventos registrados por día. Útil para decidir en qué días conviene concentrar el presupuesto.</p>
+    <div id="contenedor-frecuencia"></div>
+  </section>
+
+  <!-- CIERRES -->
+  <section class="bloque">
+    <h2>De contacto a venta</h2>
+    <p class="sub">Lo que pasa una vez que el lead sale de la página y llega a manos del vendedor.</p>
+    <div id="contenedor-cierres"></div>
+  </section>
+
+  <div class="cierre-pie">
+    Los datos se leen en tu navegador y no se guardan en ningún lado — cada vez que abras el archivo, vuelve a subirlos.
+  </div>
+</div>
+
+<script>
+// ============ ESTADO ============
+const ORDEN_EMBUDO = [
+  { evento:"PageView",          nombre:"Vio la página",              detalle:"Llegó desde el anuncio" },
+  { evento:"CoberturaPositiva", nombre:"Confirmó cobertura",         detalle:"Sí llegamos a su zona" },
+  { evento:"InitiateCheckout",  nombre:"Contó qué paga hoy",         detalle:"Compartió su plan actual" },
+  { evento:"Lead",              nombre:"Vio su plan recomendado",    detalle:"Recibió una oferta concreta" },
+  { evento:"Contact",           nombre:"Abrió WhatsApp",             detalle:"Quiso contratar" }
+];
+
+const TODOS = "__todos__";
+const POR_HORA = "hora";
+const POR_DIA = "dia";
+
+const estado = {
+  eventos: {},        // { PageView: 28, ... }
+  porHoraEvento: {},  // { "2026-08-11 22": { PageView: 1 }, ... }  fuente única
+  archivosLeidos: [],
+  campana: null,      // { impresiones, alcance, gasto }
+  cierres: null,
+  eventoGraficado: TODOS,
+  granularidad: null  // se decide sola la primera vez, según el rango de fechas
+};
+
+// ============ UTILIDADES ============
+const num = n => (n ?? 0).toLocaleString("es-MX");
+const pesos = n => "$" + Math.round(n).toLocaleString("es-MX");
+const pct = n => (n * 100).toFixed(1).replace(".0","") + "%";
+
+function normaliza(txt){
+  return String(txt || "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+}
+
+const dosDigitos = n => String(n).padStart(2, "0");
+
+// La columna de fecha llega en tres formatos según cómo se exportó: texto
+// ("2026-08-11 22:00:00"), objeto Date, o número de serie de Excel (46245.91).
+// Devuelve "AAAA-MM-DD HH" (con hora) o null si no se pudo interpretar.
+function aMomentoISO(valor){
+  if (valor == null || valor === "") return null;
+  const arma = (a, m, d, h) => a + "-" + dosDigitos(m) + "-" + dosDigitos(d) + " " + dosDigitos(h);
+
+  if (valor instanceof Date && !isNaN(valor)){
+    return arma(valor.getFullYear(), valor.getMonth() + 1, valor.getDate(), valor.getHours());
+  }
+
+  if (typeof valor === "number" && isFinite(valor)){
+    // Número de serie de Excel: SheetJS trae SSF para convertirlo correctamente.
+    if (window.XLSX && XLSX.SSF && typeof XLSX.SSF.parse_date_code === "function"){
+      const p = XLSX.SSF.parse_date_code(valor);
+      if (p && p.y) return arma(p.y, p.m, p.d, p.H || 0);
+    }
+    // Respaldo manual: el día 25569 del calendario de Excel es 1970-01-01.
+    const d = new Date(Math.round((valor - 25569) * 86400 * 1000));
+    if (!isNaN(d)) return arma(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours());
+    return null;
+  }
+
+  const txt = String(valor).trim();
+  const m = txt.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}))?/);
+  if (m) return m[1] + "-" + m[2] + "-" + m[3] + " " + (m[4] || "00");
+
+  const suelto = new Date(txt);
+  if (!isNaN(suelto)){
+    return arma(suelto.getFullYear(), suelto.getMonth()+1, suelto.getDate(), suelto.getHours());
+  }
+  return null;
+}
+
+function aFecha(claveMomento){
+  const [f, h] = claveMomento.split(" ");
+  const [a, m, d] = f.split("-").map(Number);
+  return new Date(a, m - 1, d, Number(h || 0));
+}
+
+function etiquetaDia(clave){
+  return aFecha(clave).toLocaleDateString("es-MX", { day:"numeric", month:"short" });
+}
+
+function etiquetaHora(clave){
+  const d = aFecha(clave);
+  const dia = d.toLocaleDateString("es-MX", { weekday:"short" }).replace(".","");
+  const hora = d.toLocaleTimeString("es-MX", { hour:"numeric", hour12:true })
+                .replace(/\s?a\.?\s?m\.?/i," am").replace(/\s?p\.?\s?m\.?/i," pm");
+  return dia + " " + hora;
+}
+
+// ============ LECTURA DE ARCHIVOS ============
+function leeLibro(file){
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader();
+    lector.onload = e => {
+      try {
+        const libro = XLSX.read(new Uint8Array(e.target.result), { type:"array" });
+        const hoja = libro.Sheets[libro.SheetNames[0]];
+        resolve(XLSX.utils.sheet_to_json(hoja, { defval:null }));
+      } catch(err){ reject(err); }
+    };
+    lector.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    lector.readAsArrayBuffer(file);
+  });
+}
+
+// --- Eventos del sitio ---
+async function procesaEventos(archivos){
+  const zona = document.getElementById("zona-eventos");
+  const estadoEl = document.getElementById("estado-eventos");
+  zona.classList.remove("error");
+  let filasValidas = 0;
+  let sinFecha = 0;
+
+  for (const file of archivos){
+    let filas;
+    try { filas = await leeLibro(file); }
+    catch(err){
+      zona.classList.add("error");
+      estadoEl.textContent = "No se pudo leer " + file.name;
+      continue;
+    }
+
+    for (const fila of filas){
+      const nombreEvento = fila.event;
+      const conteo = Number(fila.total_count);
+      const marca = fila.unix_time_start;
+      // Las exportaciones de Meta traen una fila final con un aviso legal: se ignora.
+      if (!nombreEvento || !isFinite(conteo) || conteo <= 0 || !marca) continue;
+
+      estado.eventos[nombreEvento] = (estado.eventos[nombreEvento] || 0) + conteo;
+
+      const clave = aMomentoISO(marca);
+      if (clave){
+        if (!estado.porHoraEvento[clave]) estado.porHoraEvento[clave] = {};
+        const casilla = estado.porHoraEvento[clave];
+        casilla[nombreEvento] = (casilla[nombreEvento] || 0) + conteo;
+      } else {
+        sinFecha++;
+      }
+      filasValidas++;
+    }
+    if (!estado.archivosLeidos.includes(file.name)) estado.archivosLeidos.push(file.name);
+  }
+
+  if (filasValidas === 0 && !zona.classList.contains("error")){
+    zona.classList.add("error");
+    estadoEl.textContent = "El archivo no tiene columnas de eventos (event, total_count).";
+  } else if (filasValidas > 0){
+    zona.classList.add("lista");
+    let msg = estado.archivosLeidos.length + " archivo(s) · " +
+      Object.keys(estado.eventos).length + " tipo(s) de evento";
+    if (sinFecha > 0) msg += " · " + sinFecha + " fila(s) sin fecha legible";
+    estadoEl.textContent = msg;
+  }
+  pinta();
+}
+
+// --- Datos de campaña ---
+async function procesaCampana(file){
+  const zona = document.getElementById("zona-campana");
+  const estadoEl = document.getElementById("estado-campana");
+  zona.classList.remove("error","lista");
+
+  let filas;
+  try { filas = await leeLibro(file); }
+  catch(err){
+    zona.classList.add("error");
+    estadoEl.textContent = "No se pudo leer el archivo.";
+    return;
+  }
+  if (!filas.length){
+    zona.classList.add("error");
+    estadoEl.textContent = "El archivo está vacío.";
+    return;
+  }
+
+  // Los encabezados de Ads Manager cambian según idioma y configuración,
+  // así que se buscan por palabra clave en lugar de por nombre exacto.
+  const claves = Object.keys(filas[0]);
+  const busca = (...terminos) => claves.find(k => {
+    const kn = normaliza(k);
+    return terminos.some(t => kn.includes(t));
+  });
+
+  const colImpresiones = busca("impresion","impression");
+  const colAlcance     = busca("alcance","reach");
+  const colGasto       = busca("importe gastado","amount spent","gasto","spend");
+
+  const suma = col => col ? filas.reduce((acc,f) => acc + (Number(f[col]) || 0), 0) : null;
+
+  estado.campana = {
+    impresiones: suma(colImpresiones),
+    alcance:     suma(colAlcance),
+    gasto:       suma(colGasto)
+  };
+
+  const encontradas = [
+    colImpresiones && "impresiones",
+    colAlcance && "alcance",
+    colGasto && "gasto"
+  ].filter(Boolean);
+
+  if (!encontradas.length){
+    zona.classList.add("error");
+    // Caso más común: se subió aquí un archivo de eventos por equivocación.
+    const pareceEventos = claves.some(k => {
+      const kn = normaliza(k);
+      return kn.includes("unix_time_start") || kn === "event" || kn.includes("total_count");
+    });
+    if (pareceEventos){
+      estadoEl.textContent = "Este es un archivo de eventos — va en la primera zona, no aquí.";
+    } else {
+      const muestra = claves.slice(0,4).join(", ");
+      estadoEl.textContent = "No hay columnas de impresiones, alcance ni gasto. " +
+        "Este archivo tiene: " + muestra + (claves.length > 4 ? "…" : "");
+    }
+    estado.campana = null;
+  } else {
+    zona.classList.add("lista");
+    estadoEl.textContent = "Se leyó: " + encontradas.join(", ");
+  }
+  pinta();
+}
+
+// ============ PINTADO ============
+function pinta(){
+  pintaPeriodo();
+  pintaAviso();
+  pintaKPIs();
+  pintaEmbudo();
+  pintaFrecuencia();
+  pintaCierres();
+}
+
+function pintaPeriodo(){
+  const claves = Object.keys(estado.porHoraEvento).sort();
+  const txt = document.getElementById("periodo-texto");
+  const det = document.getElementById("periodo-detalle");
+  if (!claves.length){
+    txt.textContent = "Sin datos cargados";
+    det.textContent = "Sube tus archivos para empezar";
+    return;
+  }
+  const dias = [...new Set(claves.map(c => c.slice(0,10)))].sort();
+  const inicio = etiquetaDia(dias[0] + " 00");
+  const fin = etiquetaDia(dias[dias.length-1] + " 00");
+  txt.textContent = dias.length === 1 ? inicio : inicio + " – " + fin;
+  det.textContent = dias.length + (dias.length === 1 ? " día con actividad" : " días con actividad");
+}
+
+function pintaAviso(){
+  const caja = document.getElementById("aviso-volumen");
+  const vistas = estado.eventos.PageView || 0;
+  if (vistas > 0 && vistas < 100){
+    caja.classList.add("visible");
+    document.getElementById("aviso-texto").textContent =
+      "Llevas " + num(vistas) + " visitas registradas. Los porcentajes de este tablero ya se calculan, " +
+      "pero con este volumen una sola persona mueve mucho el resultado. Tómalos como referencia, no como conclusión, " +
+      "hasta pasar de unas cientos de visitas de tráfico pagado real.";
+  } else {
+    caja.classList.remove("visible");
+  }
+}
+
+function tarjeta({ nombre, cifra, pie, destacada, vacio }){
+  return '<div class="kpi' + (vacio ? " vacio" : "") + '">' +
+    '<div class="nombre">' + nombre + '</div>' +
+    '<div class="cifra' + (destacada ? " destacada" : "") + '">' + cifra + '</div>' +
+    (pie ? '<div class="pie">' + pie + '</div>' : '') +
+  '</div>';
+}
+
+function pintaKPIs(){
+  const cont = document.getElementById("kpis");
+  const ev = estado.eventos;
+  const totalEventos = Object.values(ev).reduce((a,b) => a+b, 0);
+  const leads = ev.Lead || 0;
+  const contactos = ev.Contact || 0;
+  const c = estado.campana;
+
+  const tarjetas = [];
+
+  tarjetas.push(tarjeta({
+    nombre: "Eventos registrados",
+    cifra: totalEventos ? num(totalEventos) : "—",
+    pie: totalEventos ? Object.keys(ev).length + " tipos distintos" : "Sube los archivos de eventos",
+    vacio: !totalEventos
+  }));
+
+  tarjetas.push(tarjeta({
+    nombre: "Personas alcanzadas",
+    cifra: c && c.alcance ? num(c.alcance) : "—",
+    pie: c && c.impresiones ? num(c.impresiones) + " impresiones" : "Sube el archivo de campaña",
+    vacio: !(c && c.alcance)
+  }));
+
+  tarjetas.push(tarjeta({
+    nombre: "Presupuesto gastado",
+    cifra: c && c.gasto ? pesos(c.gasto) : "—",
+    pie: c && c.gasto ? "En el periodo cargado" : "Sube el archivo de campaña",
+    vacio: !(c && c.gasto)
+  }));
+
+  const costoPorLead = (c && c.gasto && leads) ? c.gasto / leads : null;
+  tarjetas.push(tarjeta({
+    nombre: "Costo por lead",
+    cifra: costoPorLead ? pesos(costoPorLead) : "—",
+    pie: costoPorLead ? "Gasto ÷ " + num(leads) + " leads" : "Falta gasto o leads",
+    destacada: !!costoPorLead,
+    vacio: !costoPorLead
+  }));
+
+  const tasaCierre = (estado.cierres != null && contactos) ? estado.cierres / contactos : null;
+  tarjetas.push(tarjeta({
+    nombre: "Tasa de cierre",
+    cifra: tasaCierre != null ? pct(tasaCierre) : "—",
+    pie: tasaCierre != null
+      ? num(estado.cierres) + " de " + num(contactos) + " contactos"
+      : "Escribe las ventas cerradas",
+    destacada: tasaCierre != null,
+    vacio: tasaCierre == null
+  }));
+
+  cont.innerHTML = tarjetas.join("");
+}
+
+function pintaEmbudo(){
+  const cont = document.getElementById("contenedor-embudo");
+  const ev = estado.eventos;
+  const tieneAlgo = ORDEN_EMBUDO.some(p => ev[p.evento]);
+
+  if (!tieneAlgo){
+    cont.innerHTML = '<div class="vacio-msg"><b>Aún no hay eventos que mostrar</b>' +
+      'Sube los archivos del Administrador de eventos y el recorrido aparecerá aquí.</div>';
+    return;
+  }
+
+  const cima = ev[ORDEN_EMBUDO[0].evento] || Math.max(...ORDEN_EMBUDO.map(p => ev[p.evento] || 0));
+  let html = '<div class="embudo">';
+
+  ORDEN_EMBUDO.forEach((paso, i) => {
+    const total = ev[paso.evento] || 0;
+    const ancho = cima ? Math.max((total / cima) * 100, total > 0 ? 3 : 0) : 0;
+
+    if (i > 0){
+      const anterior = ev[ORDEN_EMBUDO[i-1].evento] || 0;
+      if (anterior > 0){
+        const tasa = total / anterior;
+        const mala = tasa < 0.4;
+        html += '<div class="caida' + (mala ? " mala" : "") + '">' +
+          '<span class="flecha">&#8595;</span>' +
+          '<span><b>' + pct(tasa) + '</b> siguió desde el paso anterior</span>' +
+        '</div>';
+      }
+    }
+
+    html += '<div class="paso">' +
+      '<div class="indice">0' + (i+1) + '</div>' +
+      '<div class="barra-marco">' +
+        '<div class="barra-etiquetas">' +
+          '<div class="barra-nombre">' + paso.nombre + '<small>' + paso.detalle + '</small></div>' +
+          '<div class="barra-total">' + num(total) + '</div>' +
+        '</div>' +
+        '<div class="barra-riel"><div class="barra-relleno" data-ancho="' + ancho + '"></div></div>' +
+      '</div>' +
+    '</div>';
+  });
+
+  const sinCobertura = ev.CoberturaNegativa || 0;
+  html += '<div class="fuera">' +
+    '<span>Escribieron una zona donde todavía no llegamos<br><small>No entran al recorrido, pero sí dejan su contacto para avisarles después.</small></span>' +
+    '<span class="valor">' + num(sinCobertura) + '</span>' +
+  '</div>';
+
+  html += '</div>';
+  cont.innerHTML = html;
+
+  // Se anima el ancho después de insertar, para que la transición se vea.
+  requestAnimationFrame(() => {
+    cont.querySelectorAll(".barra-relleno").forEach(b => {
+      b.style.width = b.dataset.ancho + "%";
+    });
+  });
+}
+
+// Nombre legible de cada evento, con respaldo para cualquiera que no esté en el embudo.
+function nombreLegible(evento){
+  const paso = ORDEN_EMBUDO.find(p => p.evento === evento);
+  if (paso) return paso.nombre;
+  if (evento === "CoberturaNegativa") return "Zona sin cobertura";
+  return evento;
+}
+
+// Construye la serie continua de puntos: rellena con cero las horas o días
+// sin actividad, para que la línea no invente saltos donde no hubo datos.
+function armaSerie(granularidad, evento){
+  const claves = Object.keys(estado.porHoraEvento).sort();
+  if (!claves.length) return { claves: [], valores: [] };
+
+  const suma = casilla => {
+    if (!casilla) return 0;
+    if (evento === TODOS) return Object.values(casilla).reduce((a,b) => a+b, 0);
+    return casilla[evento] || 0;
+  };
+
+  if (granularidad === POR_DIA){
+    const porDia = {};
+    for (const c of claves){
+      const dia = c.slice(0,10);
+      porDia[dia] = (porDia[dia] || 0) + suma(estado.porHoraEvento[c]);
+    }
+    const dias = Object.keys(porDia).sort();
+    const salida = [], valores = [];
+    const cursor = aFecha(dias[0] + " 00");
+    const fin = aFecha(dias[dias.length-1] + " 00");
+    while (cursor <= fin){
+      const k = cursor.getFullYear() + "-" + dosDigitos(cursor.getMonth()+1) + "-" + dosDigitos(cursor.getDate());
+      salida.push(k + " 00");
+      valores.push(porDia[k] || 0);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return { claves: salida, valores };
+  }
+
+  const salida = [], valores = [];
+  const cursor = aFecha(claves[0]);
+  const fin = aFecha(claves[claves.length-1]);
+  while (cursor <= fin){
+    const k = cursor.getFullYear() + "-" + dosDigitos(cursor.getMonth()+1) + "-" +
+              dosDigitos(cursor.getDate()) + " " + dosDigitos(cursor.getHours());
+    salida.push(k);
+    valores.push(suma(estado.porHoraEvento[k]));
+    cursor.setHours(cursor.getHours() + 1);
+  }
+  return { claves: salida, valores };
+}
+
+// Con pocos días la vista por hora dice mucho más; con muchos, se vuelve ilegible.
+function granularidadPorDefecto(){
+  const claves = Object.keys(estado.porHoraEvento);
+  if (!claves.length) return POR_DIA;
+  const dias = new Set(claves.map(c => c.slice(0,10)));
+  return dias.size <= 4 ? POR_HORA : POR_DIA;
+}
+
+// Redondea el tope del eje vertical a un número "bonito" (5, 10, 25, 50, 100...).
+function topeBonito(max){
+  if (max <= 0) return 4;
+  const escalones = [1,2,5,10,20,25,50,100,200,250,500,1000,2000,2500,5000,10000];
+  for (const paso of escalones){
+    if (max <= paso * 4) return paso * 4;
+  }
+  return Math.ceil(max / 10000) * 10000;
+}
+
+function dibujaTendencia(claves, valores, granularidad){
+  const An = 800, Al = 260;
+  const izq = 46, der = 16, arr = 20, aba = 34;
+  const anchoUtil = An - izq - der;
+  const altoUtil = Al - arr - aba;
+  const etiquetaDe = granularidad === POR_HORA ? etiquetaHora : etiquetaDia;
+
+  const tope = topeBonito(Math.max(...valores));
+  const x = i => claves.length === 1
+    ? izq + anchoUtil / 2
+    : izq + (i / (claves.length - 1)) * anchoUtil;
+  const y = v => arr + altoUtil - (v / tope) * altoUtil;
+
+  // Rejilla y escala vertical
+  let rejilla = "";
+  const LINEAS = 4;
+  for (let i = 0; i <= LINEAS; i++){
+    const valor = (tope / LINEAS) * i;
+    const py = y(valor);
+    rejilla += '<line class="rejilla" x1="' + izq + '" y1="' + py + '" x2="' + (An - der) + '" y2="' + py + '"/>';
+    rejilla += '<text class="eje-y" x="' + (izq - 10) + '" y="' + (py + 4) + '" text-anchor="end">' + num(valor) + '</text>';
+  }
+
+  // Etiquetas del eje horizontal, espaciadas para que no se encimen
+  const saltoEtiqueta = Math.max(1, Math.ceil(claves.length / 8));
+  let ejeX = "";
+  claves.forEach((c, i) => {
+    if (i % saltoEtiqueta === 0 || i === claves.length - 1){
+      ejeX += '<text class="eje-x" x="' + x(i) + '" y="' + (Al - 10) + '">' + etiquetaDe(c) + '</text>';
+    }
+  });
+
+  const puntos = valores.map((v, i) => x(i) + "," + y(v));
+  const trazo = "M " + puntos.join(" L ");
+  const area = claves.length === 1
+    ? ""
+    : '<path class="area-tendencia" d="M ' + x(0) + ',' + y(0) + ' L ' + puntos.join(" L ") +
+      ' L ' + x(claves.length - 1) + ',' + y(0) + ' Z"/>';
+
+  // Longitud aproximada del trazo, para animar el dibujado
+  let largo = 0;
+  for (let i = 1; i < valores.length; i++){
+    const dx = x(i) - x(i-1), dy = y(valores[i]) - y(valores[i-1]);
+    largo += Math.sqrt(dx*dx + dy*dy);
+  }
+
+  // Con muchos puntos los círculos saturan la gráfica; se marcan solo si caben.
+  const marcarPuntos = claves.length <= 40;
+  const anchoZona = Math.max(anchoUtil / Math.max(claves.length, 1), 8);
+  let marcadores = "";
+  claves.forEach((c, i) => {
+    const px = x(i), py = y(valores[i]);
+    const texto = num(valores[i]) + " · " + etiquetaDe(c);
+    const anchoGlobo = Math.max(70, texto.length * 7 + 20);
+    const globoY = py - 34 < arr ? py + 14 : py - 34;
+    marcadores +=
+      '<g class="grupo-punto">' +
+        (marcarPuntos ? '<circle class="punto" cx="' + px + '" cy="' + py + '" r="4"/>' : '') +
+        '<circle class="punto-hover" cx="' + px + '" cy="' + py + '" r="5"/>' +
+        '<rect class="zona-punto" x="' + (px - anchoZona/2) + '" y="' + arr + '" width="' + anchoZona + '" height="' + altoUtil + '"/>' +
+        '<g class="globo">' +
+          '<rect x="' + Math.min(Math.max(px - anchoGlobo/2, 2), An - anchoGlobo - 2) + '" y="' + globoY + '" width="' + anchoGlobo + '" height="24"/>' +
+          '<text x="' + Math.min(Math.max(px, anchoGlobo/2 + 2), An - anchoGlobo/2 - 2) + '" y="' + (globoY + 16) + '">' + texto + '</text>' +
+        '</g>' +
+      '</g>';
+  });
+
+  return '<svg class="grafica-svg" viewBox="0 0 ' + An + ' ' + Al + '" role="img" ' +
+      'aria-label="Actividad a lo largo del tiempo">' +
+    '<defs><linearGradient id="degradado-area" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="#2BE8D6" stop-opacity="0.28"/>' +
+      '<stop offset="100%" stop-color="#2BE8D6" stop-opacity="0"/>' +
+    '</linearGradient></defs>' +
+    rejilla + area +
+    '<path class="linea-tendencia animada" style="--largo:' + Math.ceil(largo) + '" d="' + trazo + '"/>' +
+    marcadores + ejeX +
+  '</svg>';
+}
+
+function pintaFrecuencia(){
+  const cont = document.getElementById("contenedor-frecuencia");
+  const hayDatos = Object.keys(estado.porHoraEvento).length > 0;
+
+  if (!hayDatos){
+    cont.innerHTML = '<div class="vacio-msg"><b>Todavía no hay actividad que graficar</b>' +
+      'Cuando subas los eventos verás aquí cómo se movió la campaña con el tiempo.</div>';
+    return;
+  }
+
+  // Los eventos se listan en el orden del embudo; los demás van al final.
+  const presentes = Object.keys(estado.eventos);
+  const ordenados = ORDEN_EMBUDO.map(p => p.evento).filter(e => presentes.includes(e))
+    .concat(presentes.filter(e => !ORDEN_EMBUDO.some(p => p.evento === e)));
+
+  // Si el evento elegido ya no está en los datos cargados, se vuelve al total.
+  if (estado.eventoGraficado !== TODOS && !presentes.includes(estado.eventoGraficado)){
+    estado.eventoGraficado = TODOS;
+  }
+  const elegido = estado.eventoGraficado;
+  if (estado.granularidad === null) estado.granularidad = granularidadPorDefecto();
+  const gran = estado.granularidad;
+
+  let opciones = '<option value="' + TODOS + '"' + (elegido === TODOS ? " selected" : "") + '>Todos los eventos</option>';
+  ordenados.forEach(e => {
+    opciones += '<option value="' + e + '"' + (elegido === e ? " selected" : "") + '>' +
+      nombreLegible(e) + '</option>';
+  });
+
+  const filtros = '<div class="filtro">' +
+    '<label for="selector-evento">Mostrando</label>' +
+    '<select id="selector-evento">' + opciones + '</select>' +
+    '<div class="conmutador" role="group" aria-label="Agrupar por">' +
+      '<button type="button" data-gran="' + POR_HORA + '"' + (gran === POR_HORA ? ' class="activo"' : '') + '>Por hora</button>' +
+      '<button type="button" data-gran="' + POR_DIA + '"' + (gran === POR_DIA ? ' class="activo"' : '') + '>Por día</button>' +
+    '</div>' +
+  '</div>';
+
+  const { claves, valores } = armaSerie(gran, elegido);
+  const total = valores.reduce((a,b) => a+b, 0);
+  const promedio = total / (claves.length || 1);
+  const tope = Math.max(...valores);
+  const pico = tope > 0 ? claves[valores.indexOf(tope)] : null;
+  const conActividad = valores.filter(v => v > 0).length;
+  const etiquetaDe = gran === POR_HORA ? etiquetaHora : etiquetaDia;
+  const unidad = gran === POR_HORA ? "hora" : "día";
+
+  const etiquetaTotal = elegido === TODOS ? "eventos en total" : "veces en total";
+  const desglose = '<div class="desglose">' +
+    '<div><b>' + num(total) + '</b>' + etiquetaTotal + '</div>' +
+    '<div><b>' + promedio.toFixed(promedio < 10 ? 1 : 0) + '</b>promedio por ' + unidad + '</div>' +
+    '<div><b>' + (pico ? etiquetaDe(pico) : "—") + '</b>momento más activo</div>' +
+    '<div><b>' + conActividad + ' de ' + claves.length + '</b>' + unidad + 's con registro</div>' +
+  '</div>';
+
+  cont.innerHTML = '<div class="frecuencia">' + filtros +
+    dibujaTendencia(claves, valores, gran) + desglose + '</div>';
+
+  document.getElementById("selector-evento").addEventListener("change", e => {
+    estado.eventoGraficado = e.target.value;
+    pintaFrecuencia();
+  });
+  cont.querySelectorAll("[data-gran]").forEach(b => {
+    b.addEventListener("click", () => {
+      estado.granularidad = b.dataset.gran;
+      pintaFrecuencia();
+    });
+  });
+}
+
+function pintaCierres(){
+  const cont = document.getElementById("contenedor-cierres");
+  const contactos = estado.eventos.Contact || 0;
+  const cierres = estado.cierres;
+  const c = estado.campana;
+
+  if (!contactos && cierres == null){
+    cont.innerHTML = '<div class="vacio-msg"><b>Falta información para comparar</b>' +
+      'Necesitas los eventos del sitio (para saber cuántos contactaron) y el dato de ventas cerradas que te dé el equipo.</div>';
+    return;
+  }
+
+  const perdidos = (cierres != null) ? Math.max(contactos - cierres, 0) : null;
+  const costoPorVenta = (c && c.gasto && cierres) ? c.gasto / cierres : null;
+
+  let html = '<div class="cierres">';
+  html += '<div class="cierre-caja"><div class="nombre">Te contactaron</div>' +
+    '<div class="cifra">' + num(contactos) + '</div>' +
+    '<div class="pie">Abrieron WhatsApp desde la página</div></div>';
+
+  html += '<div class="cierre-caja resalte"><div class="nombre">Se convirtieron en venta</div>' +
+    '<div class="cifra">' + (cierres != null ? num(cierres) : "—") + '</div>' +
+    '<div class="pie">' + (cierres != null ? "Según el equipo de ventas" : "Escribe el dato arriba") + '</div></div>';
+
+  html += '<div class="cierre-caja"><div class="nombre">Se quedaron en el camino</div>' +
+    '<div class="cifra">' + (perdidos != null ? num(perdidos) : "—") + '</div>' +
+    '<div class="pie">' + (perdidos != null ? "Contactaron pero no cerraron" : "Falta el dato de ventas") + '</div></div>';
+
+  html += '<div class="cierre-caja"><div class="nombre">Costo por venta</div>' +
+    '<div class="cifra">' + (costoPorVenta ? pesos(costoPorVenta) : "—") + '</div>' +
+    '<div class="pie">' + (costoPorVenta ? "Gasto ÷ ventas cerradas" : "Falta gasto o ventas") + '</div></div>';
+
+  html += '</div>';
+  cont.innerHTML = html;
+}
+
+// ============ CONEXIONES ============
+document.querySelectorAll("[data-abre]").forEach(btn => {
+  btn.addEventListener("click", () => document.getElementById(btn.dataset.abre).click());
+});
+
+document.getElementById("archivo-eventos").addEventListener("change", e => {
+  if (e.target.files.length) procesaEventos(Array.from(e.target.files));
+});
+
+document.getElementById("archivo-campana").addEventListener("change", e => {
+  if (e.target.files.length) procesaCampana(e.target.files[0]);
+});
+
+document.getElementById("entrada-cierres").addEventListener("input", e => {
+  const v = e.target.value.trim();
+  estado.cierres = v === "" ? null : Math.max(0, parseInt(v, 10) || 0);
+  const zona = document.getElementById("zona-cierres");
+  const est = document.getElementById("estado-cierres");
+  if (estado.cierres != null){
+    zona.classList.add("lista");
+    est.textContent = "Dato capturado";
+  } else {
+    zona.classList.remove("lista");
+    est.textContent = "";
+  }
+  pintaKPIs();
+  pintaCierres();
+});
+
+// Arrastrar y soltar en las dos zonas de archivo
+[["zona-eventos", f => procesaEventos(f)],
+ ["zona-campana", f => procesaCampana(f[0])]].forEach(([id, manejar]) => {
+  const zona = document.getElementById(id);
+  ["dragenter","dragover"].forEach(ev =>
+    zona.addEventListener(ev, e => { e.preventDefault(); zona.classList.add("activa"); }));
+  ["dragleave","drop"].forEach(ev =>
+    zona.addEventListener(ev, e => { e.preventDefault(); zona.classList.remove("activa"); }));
+  zona.addEventListener("drop", e => {
+    const archivos = Array.from(e.dataTransfer.files);
+    if (archivos.length) manejar(archivos);
+  });
+});
+
+// Estado inicial
+pinta();
+</script>
+</body>
+</html>
