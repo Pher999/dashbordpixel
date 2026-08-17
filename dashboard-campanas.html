@@ -49,6 +49,13 @@
   }
   .periodo{font-size:14px; color:var(--tenue); text-align:right; line-height:1.6;}
   .periodo b{color:var(--texto); font-weight:600; display:block; font-size:16px;}
+  .boton-reiniciar{
+    font-family:var(--cuerpo); font-size:12px; font-weight:600; color:var(--tenue);
+    background:transparent; border:1px solid var(--linea); border-radius:999px;
+    padding:6px 14px; margin-top:8px; cursor:pointer; transition:border-color .2s ease, color .2s ease;
+  }
+  .boton-reiniciar:hover{border-color:var(--naranja); color:var(--naranja);}
+  .boton-reiniciar:focus-visible{outline:2px solid var(--aqua); outline-offset:2px;}
 
   /* ---------- CARGA DE ARCHIVOS ---------- */
   .cargas{
@@ -229,7 +236,6 @@
   }
   .vacio-msg b{display:block; color:var(--texto); font-family:var(--display); font-weight:800; font-size:18px; margin-bottom:6px;}
 
-  pie{display:block;}
   .cierre-pie{
     margin-top:60px; padding-top:24px; border-top:1px solid var(--linea);
     font-size:12px; color:var(--tenue); text-align:center; line-height:1.7;
@@ -258,6 +264,7 @@
     <div class="periodo">
       <b id="periodo-texto">Sin datos cargados</b>
       <span id="periodo-detalle">Sube tus archivos para empezar</span>
+      <button class="boton-reiniciar" id="boton-reiniciar" type="button" hidden>Empezar de nuevo</button>
     </div>
   </header>
 
@@ -343,11 +350,19 @@ const estado = {
   eventos: {},        // { PageView: 28, ... }
   porHoraEvento: {},  // { "2026-08-11 22": { PageView: 1 }, ... }  fuente única
   archivosLeidos: [],
+  firmasEventos: new Set(), // evita sumar dos veces el mismo archivo si se vuelve a soltar
   campana: null,      // { impresiones, alcance, gasto }
   cierres: null,
   eventoGraficado: TODOS,
   granularidad: null  // se decide sola la primera vez, según el rango de fechas
 };
+
+// Identifica un archivo por nombre + tamaño + fecha de modificación.
+// No es infalible (dos exportaciones distintas podrían coincidir en los tres),
+// pero cubre el caso real: soltar el mismo archivo por accidente dos veces.
+function firmaArchivo(file){
+  return file.name + "_" + file.size + "_" + file.lastModified;
+}
 
 // ============ UTILIDADES ============
 const num = n => (n ?? 0).toLocaleString("es-MX");
@@ -435,8 +450,15 @@ async function procesaEventos(archivos){
   zona.classList.remove("error");
   let filasValidas = 0;
   let sinFecha = 0;
+  let repetidos = 0;
 
   for (const file of archivos){
+    const firma = firmaArchivo(file);
+    if (estado.firmasEventos.has(firma)){
+      repetidos++;
+      continue; // este archivo ya se contó antes: se ignora para no duplicar cifras
+    }
+
     let filas;
     try { filas = await leeLibro(file); }
     catch(err){
@@ -445,6 +467,7 @@ async function procesaEventos(archivos){
       continue;
     }
 
+    estado.firmasEventos.add(firma);
     for (const fila of filas){
       const nombreEvento = fila.event;
       const conteo = Number(fila.total_count);
@@ -467,7 +490,11 @@ async function procesaEventos(archivos){
     if (!estado.archivosLeidos.includes(file.name)) estado.archivosLeidos.push(file.name);
   }
 
-  if (filasValidas === 0 && !zona.classList.contains("error")){
+  if (filasValidas === 0 && repetidos > 0 && !zona.classList.contains("error")){
+    estadoEl.textContent = repetidos === 1
+      ? "Ese archivo ya estaba cargado — no se volvió a contar."
+      : "Esos " + repetidos + " archivos ya estaban cargados — no se volvieron a contar.";
+  } else if (filasValidas === 0 && !zona.classList.contains("error")){
     zona.classList.add("error");
     estadoEl.textContent = "El archivo no tiene columnas de eventos (event, total_count).";
   } else if (filasValidas > 0){
@@ -475,6 +502,7 @@ async function procesaEventos(archivos){
     let msg = estado.archivosLeidos.length + " archivo(s) · " +
       Object.keys(estado.eventos).length + " tipo(s) de evento";
     if (sinFecha > 0) msg += " · " + sinFecha + " fila(s) sin fecha legible";
+    if (repetidos > 0) msg += " · " + repetidos + " ya estaba(n) cargado(s)";
     estadoEl.textContent = msg;
   }
   pinta();
@@ -561,6 +589,10 @@ function pintaPeriodo(){
   const claves = Object.keys(estado.porHoraEvento).sort();
   const txt = document.getElementById("periodo-texto");
   const det = document.getElementById("periodo-detalle");
+  const botonReiniciar = document.getElementById("boton-reiniciar");
+  const hayAlgo = claves.length > 0 || estado.campana || estado.cierres != null;
+  botonReiniciar.hidden = !hayAlgo;
+
   if (!claves.length){
     txt.textContent = "Sin datos cargados";
     det.textContent = "Sube tus archivos para empezar";
@@ -571,6 +603,31 @@ function pintaPeriodo(){
   const fin = etiquetaDia(dias[dias.length-1] + " 00");
   txt.textContent = dias.length === 1 ? inicio : inicio + " – " + fin;
   det.textContent = dias.length + (dias.length === 1 ? " día con actividad" : " días con actividad");
+}
+
+// Vuelve el tablero a su estado inicial para empezar a cargar un periodo nuevo.
+function reiniciaTodo(){
+  estado.eventos = {};
+  estado.porHoraEvento = {};
+  estado.archivosLeidos = [];
+  estado.firmasEventos = new Set();
+  estado.campana = null;
+  estado.cierres = null;
+  estado.eventoGraficado = TODOS;
+  estado.granularidad = null;
+
+  ["zona-eventos","zona-campana","zona-cierres"].forEach(id => {
+    const zona = document.getElementById(id);
+    zona.classList.remove("activa","lista","error");
+  });
+  document.getElementById("estado-eventos").textContent = "";
+  document.getElementById("estado-campana").textContent = "";
+  document.getElementById("estado-cierres").textContent = "";
+  document.getElementById("archivo-eventos").value = "";
+  document.getElementById("archivo-campana").value = "";
+  document.getElementById("entrada-cierres").value = "";
+
+  pinta();
 }
 
 function pintaAviso(){
@@ -974,6 +1031,10 @@ document.getElementById("archivo-eventos").addEventListener("change", e => {
 
 document.getElementById("archivo-campana").addEventListener("change", e => {
   if (e.target.files.length) procesaCampana(e.target.files[0]);
+});
+
+document.getElementById("boton-reiniciar").addEventListener("click", () => {
+  if (confirm("¿Borrar todo lo cargado y empezar un periodo nuevo?")) reiniciaTodo();
 });
 
 document.getElementById("entrada-cierres").addEventListener("input", e => {
